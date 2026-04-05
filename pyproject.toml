@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netnewswire-to-obsidian"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sync NetNewsWire starred articles to Obsidian as markdown files"
 readme = "README.md"
 license = "MIT"
