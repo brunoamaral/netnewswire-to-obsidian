@@ -38,14 +38,19 @@ Each starred article becomes a markdown file:
 
 ```markdown
 ---
+kind: Clipping
 title: "Article Title"
-author: "Author Name"
-date: 2026-04-01
+source: https://example.com/article
+author:
+  - "[[Author Name]]"
+published: 2026-04-01
+created: 2026-04-05
+origin: NetNewsWire
+tags:
+  - clippings
 feed: "Feed Name"
-url: https://example.com/article
 feed_url: https://example.com/feed.xml
 article_id: "abc123"
-synced_at: 2026-04-05T10:30:00
 ---
 
 Full article content converted from HTML to markdown...

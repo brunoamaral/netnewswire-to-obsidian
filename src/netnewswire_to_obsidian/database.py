@@ -1,6 +1,7 @@
 """Read starred articles from NetNewsWire's SQLite database."""
 
 import sqlite3
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,16 +30,33 @@ def discover_accounts(accounts_base: Path) -> list[str]:
     ]
 
 
+def load_feed_names(account_dir: Path) -> dict[str, str]:
+    """Parse Subscriptions.opml to return {feed_url: feed_name}."""
+    opml_path = account_dir / "Subscriptions.opml"
+    if not opml_path.exists():
+        return {}
+    try:
+        tree = ET.parse(opml_path)
+    except ET.ParseError:
+        return {}
+    result = {}
+    for outline in tree.iter("outline"):
+        xml_url = outline.get("xmlUrl")
+        name = outline.get("title") or outline.get("text") or xml_url
+        if xml_url and name:
+            result[xml_url] = name
+    return result
+
+
 def get_starred_articles(db_path: Path) -> list[Article]:
     """Query starred articles from a NetNewsWire DB.sqlite3 file."""
+    feed_names = load_feed_names(db_path.parent)
     uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
 
     try:
         articles = []
-        # Query articles joined with feeds for feed name/URL.
-        # NetNewsWire schema: articles table has feedID referencing feeds table.
         cursor = conn.execute(
             """
             SELECT
@@ -47,16 +65,18 @@ def get_starred_articles(db_path: Path) -> list[Article]:
                 a.contentHTML,
                 a.url,
                 a.datePublished,
-                COALESCE(a.authors, '') as authors,
-                a.feedID,
-                COALESCE(f.name, '') as feedName,
-                COALESCE(f.url, '') as feedURL
+                GROUP_CONCAT(au.name, ', ') as authors,
+                a.feedID
             FROM articles a
-            LEFT JOIN feeds f ON a.feedID = f.feedID
-            WHERE a.starred = 1
+            JOIN statuses s ON a.articleID = s.articleID
+            LEFT JOIN authorsLookup al ON a.articleID = al.articleID
+            LEFT JOIN authors au ON al.authorID = au.authorID
+            WHERE s.starred = 1
+            GROUP BY a.articleID
             """
         )
         for row in cursor:
+            feed_id = row["feedID"]
             articles.append(
                 Article(
                     article_id=row["articleID"],
@@ -64,10 +84,10 @@ def get_starred_articles(db_path: Path) -> list[Article]:
                     content_html=row["contentHTML"] or "",
                     url=row["url"] or "",
                     date_published=row["datePublished"] or "",
-                    authors=row["authors"],
-                    feed_id=row["feedID"],
-                    feed_name=row["feedName"],
-                    feed_url=row["feedURL"],
+                    authors=row["authors"] or "",
+                    feed_id=feed_id,
+                    feed_name=feed_names.get(feed_id, feed_id),
+                    feed_url=feed_id,
                 )
             )
         return articles

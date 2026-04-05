@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "nnw-obsidian-sync" / "config.yaml"
+LOCAL_CONFIG_PATH = Path("config.yaml")
 
 NNW_ACCOUNTS_BASE = (
     Path.home()
@@ -34,7 +35,12 @@ def load_config(
     cli_accounts: list[str] | None = None,
 ) -> Config:
     """Load config from YAML file and merge CLI overrides."""
-    path = config_path or DEFAULT_CONFIG_PATH
+    if config_path:
+        path = config_path
+    elif LOCAL_CONFIG_PATH.exists():
+        path = LOCAL_CONFIG_PATH
+    else:
+        path = DEFAULT_CONFIG_PATH
     data: dict = {}
 
     if path.exists():

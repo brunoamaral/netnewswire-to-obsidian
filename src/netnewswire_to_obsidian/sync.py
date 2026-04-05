@@ -15,21 +15,32 @@ logger = logging.getLogger(__name__)
 
 def build_frontmatter(article: Article, synced_at: str) -> str:
     """Build YAML frontmatter for an article."""
-    # Escape quotes in title/author for YAML safety
     title = article.title.replace('"', '\\"')
-    authors = article.authors.replace('"', '\\"')
     feed_name = article.feed_name.replace('"', '\\"')
+
+    # Authors: split by comma, wrap each as [[wikilink]]
+    raw_authors = [a.strip() for a in article.authors.split(",") if a.strip()]
+    if raw_authors:
+        author_lines = ["author:"] + [f'  - "[[{a}]]"' for a in raw_authors]
+    else:
+        author_lines = ["author: []"]
+
+    created_date = synced_at[:10]  # YYYY-MM-DD from YYYY-MM-DDTHH:MM:SS
 
     lines = [
         "---",
+        "kind: Clipping",
         f'title: "{title}"',
-        f'author: "{authors}"',
-        f"date: {article.date_published}",
+        f"source: {article.url}",
+        *author_lines,
+        f"published: {article.date_published}",
+        f"created: {created_date}",
+        "origin: NetNewsWire",
+        "tags:",
+        "  - clippings",
         f'feed: "{feed_name}"',
-        f"url: {article.url}",
         f"feed_url: {article.feed_url}",
         f'article_id: "{article.article_id}"',
-        f"synced_at: {synced_at}",
         "---",
     ]
     return "\n".join(lines)

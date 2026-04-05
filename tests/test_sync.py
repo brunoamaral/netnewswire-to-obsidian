@@ -26,31 +26,53 @@ def sample_article():
 
 @pytest.fixture
 def nnw_db(tmp_path):
-    """Create a test NNW database structure."""
+    """Create a test NNW database structure matching the real NNW schema."""
     account_dir = tmp_path / "accounts" / "TestAccount"
     account_dir.mkdir(parents=True)
     db_path = account_dir / "DB.sqlite3"
 
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        "CREATE TABLE feeds (feedID TEXT PRIMARY KEY, name TEXT, url TEXT)"
-    )
-    conn.execute(
-        """CREATE TABLE articles (
-            articleID TEXT PRIMARY KEY, feedID TEXT, title TEXT,
-            contentHTML TEXT, url TEXT, datePublished TEXT,
-            dateModified TEXT, authors TEXT, starred INTEGER DEFAULT 0
+        """
+        CREATE TABLE articles (
+            articleID TEXT PRIMARY KEY, feedID TEXT NOT NULL,
+            uniqueID TEXT NOT NULL DEFAULT '', title TEXT, contentHTML TEXT,
+            contentText TEXT, url TEXT, externalURL TEXT, summary TEXT,
+            imageURL TEXT, bannerImageURL TEXT, datePublished DATE,
+            dateModified DATE, searchRowID INTEGER, markdown TEXT
         )"""
     )
-    conn.execute("INSERT INTO feeds VALUES (?, ?, ?)", ("f1", "My Feed", "https://example.com/feed"))
     conn.execute(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ("a1", "f1", "First Article", "<p>Content one</p>", "https://example.com/1", "2026-04-01", "", "Author", 1),
+        """
+        CREATE TABLE statuses (
+            articleID TEXT NOT NULL PRIMARY KEY, read BOOL NOT NULL DEFAULT 0,
+            starred BOOL NOT NULL DEFAULT 0, dateArrived DATE NOT NULL DEFAULT 0
+        )"""
     )
     conn.execute(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ("a2", "f1", "Second Article", "<p>Content two</p>", "https://example.com/2", "2026-04-02", "", "", 1),
+        """CREATE TABLE authors (
+            authorID TEXT NOT NULL PRIMARY KEY, name TEXT, url TEXT,
+            avatarURL TEXT, emailAddress TEXT
+        )"""
     )
+    conn.execute(
+        """CREATE TABLE authorsLookup (
+            authorID TEXT NOT NULL, articleID TEXT NOT NULL,
+            PRIMARY KEY(authorID, articleID)
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO articles (articleID, feedID, title, contentHTML, url, datePublished) VALUES (?, ?, ?, ?, ?, ?)",
+        ("a1", "https://example.com/feed", "First Article", "<p>Content one</p>", "https://example.com/1", "2026-04-01"),
+    )
+    conn.execute(
+        "INSERT INTO articles (articleID, feedID, title, contentHTML, url, datePublished) VALUES (?, ?, ?, ?, ?, ?)",
+        ("a2", "https://example.com/feed", "Second Article", "<p>Content two</p>", "https://example.com/2", "2026-04-02"),
+    )
+    conn.execute("INSERT INTO statuses (articleID, starred) VALUES (?, ?)", ("a1", 1))
+    conn.execute("INSERT INTO statuses (articleID, starred) VALUES (?, ?)", ("a2", 1))
+    conn.execute("INSERT INTO authors (authorID, name) VALUES (?, ?)", ("au1", "Author"))
+    conn.execute("INSERT INTO authorsLookup (authorID, articleID) VALUES (?, ?)", ("au1", "a1"))
     conn.commit()
     conn.close()
     return tmp_path
@@ -73,13 +95,32 @@ def test_article_to_filename_empty_title():
 def test_build_frontmatter(sample_article):
     fm = build_frontmatter(sample_article, "2026-04-05T10:30:00")
     assert "---" in fm
+    assert "kind: Clipping" in fm
     assert 'title: "My Test Article"' in fm
-    assert 'author: "Alice"' in fm
-    assert "date: 2026-04-01" in fm
+    assert "source: https://example.com/1" in fm
+    assert '  - "[[Alice]]"' in fm
+    assert "published: 2026-04-01" in fm
+    assert "created: 2026-04-05" in fm
+    assert "origin: NetNewsWire" in fm
+    assert "tags:" in fm
+    assert "  - clippings" in fm
     assert 'feed: "Test Feed"' in fm
-    assert "url: https://example.com/1" in fm
+    assert "feed_url: https://example.com/feed.xml" in fm
     assert 'article_id: "art1"' in fm
-    assert "synced_at: 2026-04-05T10:30:00" in fm
+
+
+def test_build_frontmatter_no_author(sample_article):
+    sample_article.authors = ""
+    fm = build_frontmatter(sample_article, "2026-04-05T10:30:00")
+    assert "author: []" in fm
+
+
+def test_build_frontmatter_multiple_authors(sample_article):
+    sample_article.authors = "Alice, Bob"
+    fm = build_frontmatter(sample_article, "2026-04-05T10:30:00")
+    assert '  - "[[Alice]]"' in fm
+    assert '  - "[[Bob]]"' in fm
+    assert 'article_id: "art1"' in fm
 
 
 def test_sync_creates_files(nnw_db, tmp_path):

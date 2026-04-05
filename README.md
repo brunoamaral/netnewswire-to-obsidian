@@ -33,10 +33,17 @@ pip install -e ".[dev]"
 1. Copy and edit the config file:
 
 ```bash
+# Option A — current directory (picked up automatically when you run from here)
+cp config.example.yaml config.yaml
+
+# Option B — user-level config (always found regardless of cwd)
 mkdir -p ~/.config/nnw-obsidian-sync
 cp config.example.yaml ~/.config/nnw-obsidian-sync/config.yaml
+
 # Edit output_dir to point to your Obsidian vault folder
 ```
+
+The tool looks for `config.yaml` in the current directory first, then falls back to `~/.config/nnw-obsidian-sync/config.yaml`. A `--config PATH` flag overrides both.
 
 2. List your NetNewsWire accounts:
 
@@ -94,14 +101,19 @@ Each article is saved as a markdown file with YAML frontmatter:
 
 ```markdown
 ---
+kind: Clipping
 title: "Article Title"
-author: "Author Name"
-date: 2026-04-01
+source: https://example.com/article
+author:
+  - "[[Author Name]]"
+published: 2026-04-01
+created: 2026-04-05
+origin: NetNewsWire
+tags:
+  - clippings
 feed: "Feed Name"
-url: https://example.com/article
 feed_url: https://example.com/feed.xml
 article_id: "abc123"
-synced_at: 2026-04-05T10:30:00
 ---
 
 Article content in markdown...

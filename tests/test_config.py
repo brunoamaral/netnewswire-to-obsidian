@@ -74,3 +74,14 @@ def test_load_config_default_accounts_empty(config_file, tmp_path):
     path = config_file({"output_dir": str(tmp_path / "output")})
     config = load_config(config_path=path)
     assert config.accounts == []
+
+
+def test_load_config_local_file_preferred(tmp_path, monkeypatch):
+    """config.yaml in cwd is used when no explicit --config is given."""
+    local_config = tmp_path / "config.yaml"
+    output_dir = tmp_path / "output"
+    local_config.write_text(yaml.dump({"output_dir": str(output_dir), "accounts": ["Local"]}))
+    monkeypatch.chdir(tmp_path)
+    config = load_config()
+    assert config.output_dir == output_dir
+    assert config.accounts == ["Local"]

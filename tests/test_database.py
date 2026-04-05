@@ -10,83 +10,80 @@ from netnewswire_to_obsidian.database import discover_accounts, get_starred_arti
 
 @pytest.fixture
 def nnw_db(tmp_path):
-    """Create a test SQLite DB matching NetNewsWire schema."""
+    """Create a test SQLite DB matching the real NetNewsWire schema."""
     account_dir = tmp_path / "TestAccount"
     account_dir.mkdir()
     db_path = account_dir / "DB.sqlite3"
 
+    # OPML for feed name lookup (feedID == xmlUrl)
+    (account_dir / "Subscriptions.opml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<opml version="1.1"><head><title>Test</title></head><body>'
+        '<outline text="Test Feed" title="Test Feed" type="rss"'
+        ' xmlUrl="https://example.com/feed.xml"/>'
+        '</body></opml>'
+    )
+
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         """
-        CREATE TABLE feeds (
-            feedID TEXT PRIMARY KEY,
-            name TEXT,
-            url TEXT
-        )
-        """
-    )
-    conn.execute(
-        """
         CREATE TABLE articles (
-            articleID TEXT PRIMARY KEY,
-            feedID TEXT,
-            title TEXT,
-            contentHTML TEXT,
-            url TEXT,
-            datePublished TEXT,
-            dateModified TEXT,
-            authors TEXT,
-            starred INTEGER DEFAULT 0,
-            FOREIGN KEY (feedID) REFERENCES feeds(feedID)
+            articleID TEXT PRIMARY KEY, feedID TEXT NOT NULL,
+            uniqueID TEXT NOT NULL DEFAULT '', title TEXT, contentHTML TEXT,
+            contentText TEXT, url TEXT, externalURL TEXT, summary TEXT,
+            imageURL TEXT, bannerImageURL TEXT, datePublished DATE,
+            dateModified DATE, searchRowID INTEGER, markdown TEXT
         )
         """
     )
     conn.execute(
-        "INSERT INTO feeds VALUES (?, ?, ?)",
-        ("feed1", "Test Feed", "https://example.com/feed.xml"),
+        """
+        CREATE TABLE statuses (
+            articleID TEXT NOT NULL PRIMARY KEY, read BOOL NOT NULL DEFAULT 0,
+            starred BOOL NOT NULL DEFAULT 0, dateArrived DATE NOT NULL DEFAULT 0
+        )
+        """
     )
     conn.execute(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            "art1",
-            "feed1",
-            "Starred Article",
-            "<p>Hello <strong>world</strong></p>",
-            "https://example.com/1",
-            "2026-04-01",
-            "2026-04-01",
-            "Alice",
-            1,
-        ),
+        """
+        CREATE TABLE authors (
+            authorID TEXT NOT NULL PRIMARY KEY, name TEXT, url TEXT,
+            avatarURL TEXT, emailAddress TEXT
+        )
+        """
     )
     conn.execute(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            "art2",
-            "feed1",
-            "Unstarred Article",
-            "<p>Not starred</p>",
-            "https://example.com/2",
-            "2026-04-02",
-            "2026-04-02",
-            "Bob",
-            0,
-        ),
+        """
+        CREATE TABLE authorsLookup (
+            authorID TEXT NOT NULL, articleID TEXT NOT NULL,
+            PRIMARY KEY(authorID, articleID)
+        )
+        """
     )
     conn.execute(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO articles (articleID, feedID, title, contentHTML, url, datePublished) VALUES (?, ?, ?, ?, ?, ?)",
+        ("art1", "https://example.com/feed.xml", "Starred Article", "<p>Hello <strong>world</strong></p>", "https://example.com/1", "2026-04-01"),
+    )
+    conn.execute(
+        "INSERT INTO articles (articleID, feedID, title, contentHTML, url, datePublished) VALUES (?, ?, ?, ?, ?, ?)",
+        ("art2", "https://example.com/feed.xml", "Unstarred Article", "<p>Not starred</p>", "https://example.com/2", "2026-04-02"),
+    )
+    conn.execute(
+        "INSERT INTO articles (articleID, feedID, title, contentHTML, url, datePublished) VALUES (?, ?, ?, ?, ?, ?)",
         (
             "art3",
-            "feed1",
+            "https://example.com/feed.xml",
             "Another Starred",
             "<h1>Title</h1><p>Content</p>",
             "https://example.com/3",
             "2026-04-03",
-            "2026-04-03",
-            "",
-            1,
         ),
     )
+    conn.execute("INSERT INTO statuses (articleID, starred) VALUES (?, ?)", ("art1", 1))
+    conn.execute("INSERT INTO statuses (articleID, starred) VALUES (?, ?)", ("art2", 0))
+    conn.execute("INSERT INTO statuses (articleID, starred) VALUES (?, ?)", ("art3", 1))
+    conn.execute("INSERT INTO authors (authorID, name) VALUES (?, ?)", ("author1", "Alice"))
+    conn.execute("INSERT INTO authorsLookup (authorID, articleID) VALUES (?, ?)", ("author1", "art1"))
     conn.commit()
     conn.close()
     return tmp_path
@@ -124,5 +121,5 @@ def test_starred_article_fields(nnw_db):
     assert art.url == "https://example.com/1"
     assert art.date_published == "2026-04-01"
     assert art.authors == "Alice"
-    assert art.feed_name == "Test Feed"
-    assert art.feed_url == "https://example.com/feed.xml"
+    assert art.feed_name == "Test Feed"  # resolved from Subscriptions.opml
+    assert art.feed_url == "https://example.com/feed.xml"  # feedID IS the URL
