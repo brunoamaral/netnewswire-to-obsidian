@@ -9,7 +9,7 @@ import textwrap
 from pathlib import Path
 
 from . import __version__
-from .config import load_config, NNW_ACCOUNTS_BASE
+from .config import load_config, NNW_ACCOUNTS_BASE, LOCAL_CONFIG_PATH, DEFAULT_CONFIG_PATH
 from .database import discover_accounts
 from .sync import sync_articles
 
@@ -150,9 +150,24 @@ def main() -> None:
         cmd_uninstall_launchd()
         return
 
-    config_path = Path(args.config) if args.config else None
+    config_path = Path(args.config).resolve() if args.config else None
 
     if args.install_launchd:
+        # Resolve which config file the launchd job should use. It must be an
+        # absolute path because launchd doesn't run from the project directory.
+        if config_path is None:
+            if LOCAL_CONFIG_PATH.exists():
+                config_path = LOCAL_CONFIG_PATH.resolve()
+            elif DEFAULT_CONFIG_PATH.exists():
+                config_path = DEFAULT_CONFIG_PATH
+            else:
+                print(
+                    f"Error: No config file found. Create one at"
+                    f" ./{LOCAL_CONFIG_PATH} or {DEFAULT_CONFIG_PATH} first.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
         # Load config to get interval_minutes
         try:
             config = load_config(
@@ -161,7 +176,6 @@ def main() -> None:
                 cli_accounts=args.accounts,
             )
         except ValueError:
-            # output_dir not strictly needed for install, use default interval
             config = None
 
         interval = config.interval_minutes if config else 30
