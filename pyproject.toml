@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netnewswire-to-obsidian"
+version = "0.1.0"
+description = "Sync NetNewsWire starred articles to Obsidian as markdown files"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "markdownify>=0.11",
+    "pyyaml>=6.0",
+    "python-slugify>=8.0",
+]
+
+[project.scripts]
+nnw-obsidian-sync = "netnewswire_to_obsidian.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

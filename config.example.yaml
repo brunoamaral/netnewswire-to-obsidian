@@ -1,0 +1,13 @@
+# Output directory where markdown files will be written.
+# This should point to a folder inside your Obsidian vault.
+output_dir: ~/Documents/ObsidianVault/NetNewsWire
+
+# Which NetNewsWire accounts to sync (optional).
+# If omitted, all discovered accounts will be synced.
+# Run `nnw-obsidian-sync --list-accounts` to see available accounts.
+# accounts:
+#   - iCloud
+#   - OnMyMac
+
+# Sync interval in minutes (used when installing the launchd plist).
+interval_minutes: 30
