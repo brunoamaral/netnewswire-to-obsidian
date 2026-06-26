@@ -1,0 +1,12 @@
+CREATE INDEX articles_feedID_datePublished_articleID on articles (feedID, datePublished, articleID)
+CREATE INDEX articles_searchRowID on articles(searchRowID)
+CREATE INDEX statuses_starred_index on statuses (starred)
+CREATE TABLE 'search_content'(docid INTEGER PRIMARY KEY, 'c0title', 'c1body')
+CREATE TABLE 'search_docsize'(docid INTEGER PRIMARY KEY, size BLOB)
+CREATE TABLE 'search_segdir'(level INTEGER,idx INTEGER,start_block INTEGER,leaves_end_block INTEGER,end_block INTEGER,root BLOB,PRIMARY KEY(level, idx))
+CREATE TABLE 'search_segments'(blockid INTEGER PRIMARY KEY, block BLOB)
+CREATE TABLE 'search_stat'(id INTEGER PRIMARY KEY, value BLOB)
+CREATE TABLE articles (articleID TEXT NOT NULL PRIMARY KEY, feedID TEXT NOT NULL, uniqueID TEXT NOT NULL, title TEXT, contentHTML TEXT, contentText TEXT, url TEXT, externalURL TEXT, summary TEXT, imageURL TEXT, bannerImageURL TEXT, datePublished DATE, dateModified DATE, searchRowID INTEGER, markdown TEXT, authors TEXT)
+CREATE TABLE statuses (articleID TEXT NOT NULL PRIMARY KEY, read BOOL NOT NULL DEFAULT 0, starred BOOL NOT NULL DEFAULT 0, dateArrived DATE NOT NULL DEFAULT 0)
+CREATE TRIGGER articles_after_delete_trigger_delete_search_text after delete on articles begin delete from search where rowid = OLD.searchRowID; end
+CREATE VIRTUAL TABLE search using fts4(title, body)

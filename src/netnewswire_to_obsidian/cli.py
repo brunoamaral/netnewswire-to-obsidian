@@ -36,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show what would be synced without writing files",
     )
     parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing markdown files instead of skipping them",
+    )
+    parser.add_argument(
         "--list-accounts",
         action="store_true",
         help="List available NetNewsWire accounts and exit",
@@ -192,7 +197,7 @@ def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    synced, skipped = sync_articles(config, dry_run=args.dry_run)
+    synced, skipped = sync_articles(config, dry_run=args.dry_run, overwrite=args.overwrite)
 
     prefix = "[dry-run] " if args.dry_run else ""
     print(f"{prefix}Done: {synced} synced, {skipped} skipped (already exist).")

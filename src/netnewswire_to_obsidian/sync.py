@@ -54,7 +54,7 @@ def article_to_filename(article: Article) -> str:
     return f"{slug}.md"
 
 
-def sync_articles(config: Config, dry_run: bool = False) -> tuple[int, int]:
+def sync_articles(config: Config, dry_run: bool = False, overwrite: bool = False) -> tuple[int, int]:
     """Sync starred articles to markdown files.
 
     Returns (synced_count, skipped_count).
@@ -91,7 +91,7 @@ def sync_articles(config: Config, dry_run: bool = False) -> tuple[int, int]:
             filename = article_to_filename(article)
             filepath = config.output_dir / filename
 
-            if filepath.exists():
+            if filepath.exists() and not overwrite:
                 logger.debug("Skipping (exists): %s", filename)
                 skipped += 1
                 continue
